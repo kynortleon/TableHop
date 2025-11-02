@@ -1,0 +1,20 @@
+[
+  {
+    "key": "item-healing-potion",
+    "name": "Healing Potion",
+    "level": 1,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Equipment.aspx?ID=1",
+    "tags": ["Consumable"],
+    "pfsLegal": true
+  },
+  {
+    "key": "item-wand-of-magic-missile",
+    "name": "Wand of Magic Missile",
+    "level": 5,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Equipment.aspx?ID=2",
+    "tags": ["Wand"],
+    "pfsLegal": true
+  }
+]

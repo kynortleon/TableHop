@@ -3,11 +3,8 @@
 import { useMemo, useState, useTransition } from 'react';
 import { characterSchema } from '@/lib/validators/character';
 import type { CatalogEntry } from '@/lib/aon/types';
+import { useCatalog } from '@/hooks/useCatalog';
 import { Badge } from './ui/badge';
-
-interface WizardProps {
-  catalogs: Record<string, CatalogEntry[]>;
-}
 
 type StepKey = 'identity' | 'abilities' | 'skills' | 'feats' | 'spells' | 'gear';
 
@@ -51,7 +48,7 @@ const skillList = [
 const maxSkillChoices = 8;
 const abilityBudget = 72;
 
-export function CharacterWizard({ catalogs }: WizardProps) {
+export function CharacterWizard() {
   const [currentStep, setCurrentStep] = useState<StepKey>('identity');
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState({
@@ -73,6 +70,15 @@ export function CharacterWizard({ catalogs }: WizardProps) {
   );
   const [legalityReasons, setLegalityReasons] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const ancestries = useCatalog('ancestries');
+  const backgrounds = useCatalog('backgrounds');
+  const classes = useCatalog('classes');
+  const [featSearch, setFeatSearch] = useState('');
+  const [spellSearch, setSpellSearch] = useState('');
+  const [gearSearch, setGearSearch] = useState('');
+  const feats = useCatalog('feats', { q: featSearch, level: form.level });
+  const spells = useCatalog('spells', { q: spellSearch, level: form.level });
+  const items = useCatalog('items', { q: gearSearch, level: form.level });
 
   const totalAbilityScore = useMemo(
     () => Object.values(form.abilities).reduce((acc, score) => acc + score, 0),
@@ -241,19 +247,25 @@ export function CharacterWizard({ catalogs }: WizardProps) {
             <SelectField
               label="Ancestry"
               value={form.ancestry}
-              options={catalogs.ancestries}
+              options={ancestries.data ?? []}
+              loading={ancestries.loading}
+              error={ancestries.error?.message}
               onChange={(value) => updateField('ancestry', value)}
             />
             <SelectField
               label="Background"
               value={form.background}
-              options={catalogs.backgrounds}
+              options={backgrounds.data ?? []}
+              loading={backgrounds.loading}
+              error={backgrounds.error?.message}
               onChange={(value) => updateField('background', value)}
             />
             <SelectField
               label="Class"
               value={form.clazz}
-              options={catalogs.classes}
+              options={classes.data ?? []}
+              loading={classes.loading}
+              error={classes.error?.message}
               onChange={(value) => updateField('clazz', value)}
             />
             <div className="space-y-3">
@@ -327,33 +339,45 @@ export function CharacterWizard({ catalogs }: WizardProps) {
         {currentStep === 'feats' && (
           <CatalogPicker
             title="Feats"
-            catalog={catalogs.feats}
+            catalog={feats.data ?? []}
+            loading={feats.loading}
+            error={feats.error?.message}
+            searchValue={featSearch}
+            onSearchChange={setFeatSearch}
             selections={form.feats.map((feat) => feat.key)}
             onAdd={addFeat}
             onRemove={removeFeat}
-            renderSelected={(key) => catalogs.feats.find((feat) => feat.key === key)?.name ?? key}
+            renderSelected={(key) => feats.data?.find((feat) => feat.key === key)?.name ?? key}
           />
         )}
 
         {currentStep === 'spells' && (
           <CatalogPicker
             title="Spells"
-            catalog={catalogs.spells}
+            catalog={spells.data ?? []}
+            loading={spells.loading}
+            error={spells.error?.message}
+            searchValue={spellSearch}
+            onSearchChange={setSpellSearch}
             selections={form.spells.map((spell) => spell.key)}
             onAdd={addSpell}
             onRemove={removeSpell}
-            renderSelected={(key) => catalogs.spells.find((spell) => spell.key === key)?.name ?? key}
+            renderSelected={(key) => spells.data?.find((spell) => spell.key === key)?.name ?? key}
           />
         )}
 
         {currentStep === 'gear' && (
           <CatalogPicker
             title="Gear"
-            catalog={catalogs.items}
+            catalog={items.data ?? []}
+            loading={items.loading}
+            error={items.error?.message}
+            searchValue={gearSearch}
+            onSearchChange={setGearSearch}
             selections={form.gear.map((item) => item.key)}
             onAdd={addItem}
             onRemove={removeItem}
-            renderSelected={(key) => catalogs.items.find((item) => item.key === key)?.name ?? key}
+            renderSelected={(key) => items.data?.find((item) => item.key === key)?.name ?? key}
           />
         )}
       </div>
@@ -415,11 +439,15 @@ function SelectField({
   label,
   value,
   options,
+  loading,
+  error,
   onChange
 }: {
   label: string;
   value: string;
   options: CatalogEntry[];
+  loading: boolean;
+  error?: string;
   onChange: (value: string) => void;
 }) {
   return (
@@ -429,14 +457,20 @@ function SelectField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="w-full rounded border border-slate-800 bg-slate-900 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+        disabled={loading}
       >
-        <option value="">Select {label}</option>
+        <option value="">{loading ? `Loading ${label}…` : `Select ${label}`}</option>
         {options.map((option) => (
-          <option key={option.key} value={option.key}>
+          <option
+            key={option.key}
+            value={option.key}
+            title={`Source: ${option.source} | Level: ${option.level} | Tags: ${option.tags.join(', ') || '—'}`}
+          >
             {option.name}
           </option>
         ))}
       </select>
+      {error && <p className="text-xs text-red-300">{error}</p>}
       {value && (
         <a
           href={options.find((option) => option.key === value)?.url ?? '#'}
@@ -457,7 +491,11 @@ function CatalogPicker({
   selections,
   onAdd,
   onRemove,
-  renderSelected
+  renderSelected,
+  loading,
+  error,
+  searchValue,
+  onSearchChange
 }: {
   title: string;
   catalog: CatalogEntry[];
@@ -465,12 +503,16 @@ function CatalogPicker({
   onAdd: (entry: CatalogEntry) => void;
   onRemove: (key: string) => void;
   renderSelected: (key: string) => string;
+  loading: boolean;
+  error?: string;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
 }) {
-  const [filter, setFilter] = useState('');
+  const filterValue = searchValue ?? '';
   const filtered = useMemo(() => {
-    const lower = filter.toLowerCase();
+    const lower = filterValue.toLowerCase();
     return catalog.filter((entry) => entry.name.toLowerCase().includes(lower));
-  }, [filter, catalog]);
+  }, [filterValue, catalog]);
 
   const remaining = filtered.filter((entry) => !selections.includes(entry.key));
 
@@ -482,27 +524,55 @@ function CatalogPicker({
             {title} Catalog
           </label>
           <input
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
+            value={filterValue}
+            onChange={(event) => onSearchChange?.(event.target.value)}
             placeholder={`Search ${title.toLowerCase()}…`}
             className="w-full rounded border border-slate-800 bg-slate-900 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
         </div>
         <div className="max-h-80 space-y-2 overflow-y-auto rounded border border-slate-800 bg-slate-950 p-3 text-sm">
-          {remaining.length === 0 && <p className="text-xs text-slate-500">No results.</p>}
-          {remaining.map((entry) => (
-            <button
-              type="button"
-              key={entry.key}
-              onClick={() => onAdd(entry)}
-              className="flex w-full flex-col rounded border border-slate-800 bg-slate-900 px-3 py-2 text-left hover:border-primary/40"
-            >
-              <span className="font-semibold">{entry.name}</span>
-              <span className="text-xs text-slate-400">
-                Level {entry.level} · {entry.source}
-              </span>
-            </button>
-          ))}
+          {loading && <p className="text-xs text-slate-500">Loading {title.toLowerCase()}…</p>}
+          {!loading && error && <p className="text-xs text-red-300">{error}</p>}
+          {!loading && !error && remaining.length === 0 && (
+            <p className="text-xs text-slate-500">No results.</p>
+          )}
+          {!loading && !error &&
+            remaining.map((entry) => {
+              const tooltip = `Source: ${entry.source}\nLevel: ${entry.level}\nTags: ${entry.tags.join(', ') || '—'}`;
+              return (
+                <div
+                  key={entry.key}
+                  className="space-y-1 rounded border border-slate-800 bg-slate-900 p-3"
+                  title={tooltip}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => onAdd(entry)}
+                      className="flex-1 text-left font-semibold text-slate-100 hover:text-primary"
+                    >
+                      {entry.name}
+                    </button>
+                    <a
+                      href={entry.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-primary hover:underline"
+                    >
+                      AoN ↗
+                    </a>
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Level {entry.level} · {entry.source}
+                  </div>
+                  {entry.tags.length > 0 && (
+                    <div className="text-[0.65rem] uppercase tracking-wide text-slate-500">
+                      {entry.tags.join(', ')}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
         </div>
       </div>
       <div className="space-y-4">
@@ -511,23 +581,35 @@ function CatalogPicker({
         </label>
         <div className="space-y-2 rounded border border-slate-800 bg-slate-950 p-3 text-sm">
           {selections.length === 0 && <p className="text-xs text-slate-500">No selections yet.</p>}
-          {selections.map((key) => (
-            <div key={key} className="flex items-center justify-between gap-4 rounded border border-slate-800 bg-slate-900 px-3 py-2">
-              <div>
-                <div className="font-semibold">{renderSelected(key)}</div>
-                <a href={catalog.find((entry) => entry.key === key)?.url ?? '#'} className="text-xs text-primary" target="_blank" rel="noreferrer">
-                  View on AoN
-                </a>
-              </div>
-              <button
-                type="button"
-                onClick={() => onRemove(key)}
-                className="text-xs text-red-300 hover:text-red-200"
+          {selections.map((key) => {
+            const entry = catalog.find((item) => item.key === key);
+            const tooltip = entry
+              ? `Source: ${entry.source}\nLevel: ${entry.level}\nTags: ${entry.tags.join(', ') || '—'}`
+              : undefined;
+            return (
+              <div
+                key={key}
+                className="flex items-center justify-between gap-4 rounded border border-slate-800 bg-slate-900 px-3 py-2"
+                title={tooltip}
               >
-                Remove
-              </button>
-            </div>
-          ))}
+                <div>
+                  <div className="font-semibold">{renderSelected(key)}</div>
+                  {entry && (
+                    <a href={entry.url} className="text-xs text-primary" target="_blank" rel="noreferrer">
+                      View on AoN
+                    </a>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRemove(key)}
+                  className="text-xs text-red-300 hover:text-red-200"
+                >
+                  Remove
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

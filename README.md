@@ -54,6 +54,9 @@ TableHop is a Pathfinder 2e “drop-in” platform focused on building Pathfinde
 
    Open <http://localhost:3000> to access the Character Vault.
 
+   The Catalog API is served from the same Next.js dev server. For example, `http://localhost:3000/api/catalog/feats` returns the
+   current feat catalog filtered to Pathfinder Society–legal options.
+
 ## Seed Data
 
 The project reads PFS-legal options from the JSON catalogs stored in `data/catalogs`. Run `npm run sync:aon` regularly (or automate it daily) to keep the data in sync with <https://2e.aonprd.com/>.
