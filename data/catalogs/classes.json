@@ -1,0 +1,20 @@
+[
+  {
+    "key": "fighter",
+    "name": "Fighter",
+    "level": 1,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Classes.aspx?ID=6",
+    "tags": ["martial", "martial weapon"],
+    "pfsLegal": true
+  },
+  {
+    "key": "wizard",
+    "name": "Wizard",
+    "level": 1,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Classes.aspx?ID=12",
+    "tags": ["arcane", "spellcaster"],
+    "pfsLegal": true
+  }
+]

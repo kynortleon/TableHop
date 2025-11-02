@@ -1,0 +1,20 @@
+[
+  {
+    "key": "human",
+    "name": "Human",
+    "level": 0,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Ancestries.aspx?ID=1",
+    "tags": ["common"],
+    "pfsLegal": true
+  },
+  {
+    "key": "elf",
+    "name": "Elf",
+    "level": 0,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Ancestries.aspx?ID=2",
+    "tags": ["common"],
+    "pfsLegal": true
+  }
+]
