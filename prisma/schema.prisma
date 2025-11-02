@@ -33,6 +33,43 @@ model Character {
   versions       CharacterVersion[]
 }
 
+enum QueueEntryStatus {
+  WAITING
+  MATCHED
+  LEFT
+}
+
+enum TableSessionStatus {
+  LOADING
+  ACTIVE
+  CLOSED
+}
+
+model QueueEntry {
+  id           String           @id @default(cuid())
+  userId       String
+  characterId  String?
+  dm           Boolean          @default(false)
+  scenarioCode String?
+  status       QueueEntryStatus @default(WAITING)
+  createdAt    DateTime         @default(now())
+
+  @@unique([userId])
+}
+
+model TableSession {
+  id             String              @id @default(cuid())
+  dmId           String
+  scenarioCode   String
+  playerIds      String[]
+  characterIds   String[]
+  status         TableSessionStatus  @default(LOADING)
+  createdAt      DateTime            @default(now())
+  startedAt      DateTime?
+  closedAt       DateTime?
+  durationMinutes Int                @default(0)
+}
+
 model PfsLogEntry {
   id          String   @id @default(cuid())
   characterId String
