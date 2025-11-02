@@ -1,0 +1,20 @@
+[
+  {
+    "key": "longsword",
+    "name": "Longsword",
+    "level": 0,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Weapons.aspx?ID=15",
+    "tags": ["martial", "weapon"],
+    "pfsLegal": true
+  },
+  {
+    "key": "adventurers-pack",
+    "name": "Adventurer's Pack",
+    "level": 0,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Equipment.aspx?ID=4",
+    "tags": ["gear"],
+    "pfsLegal": true
+  }
+]

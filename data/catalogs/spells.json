@@ -1,0 +1,20 @@
+[
+  {
+    "key": "magic-missile",
+    "name": "Magic Missile",
+    "level": 1,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Spells.aspx?ID=146",
+    "tags": ["arcane", "occult"],
+    "pfsLegal": true
+  },
+  {
+    "key": "heal",
+    "name": "Heal",
+    "level": 1,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Spells.aspx?ID=90",
+    "tags": ["divine", "primal"],
+    "pfsLegal": true
+  }
+]
