@@ -15,12 +15,14 @@ model Character {
   background     String
   clazz          String
   subclass       String?
+  heritage       String?
   keyAbility     String
   abilities      Json
   skills         Json
   feats          Json
   spells         Json
   gear           Json
+  companions     Json
   legality       String           @default("pending")
   legalityLog    String?
   portraitUrl    String?
@@ -28,6 +30,7 @@ model Character {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   logEntries     PfsLogEntry[]
+  versions       CharacterVersion[]
 }
 
 model PfsLogEntry {
@@ -37,6 +40,15 @@ model PfsLogEntry {
   scenario    String
   notes       String?
   createdAt   DateTime @default(now())
+
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+}
+
+model CharacterVersion {
+  id          String    @id @default(cuid())
+  characterId String
+  createdAt   DateTime  @default(now())
+  summary     Json
 
   character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 }

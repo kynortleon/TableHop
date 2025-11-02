@@ -17,6 +17,7 @@ export const characterSchema = z
     background: z.string().min(1),
     clazz: z.string().min(1),
     subclass: z.string().optional(),
+    heritage: z.string().optional(),
     keyAbility: z.enum(['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']),
     abilities: abilityScoreSchema,
     skills: z.array(z.string()).max(18),
@@ -44,7 +45,17 @@ export const characterSchema = z
           totalCost: z.number().min(0)
         })
       )
-      .max(60)
+      .max(60),
+    companions: z
+      .array(
+        z.object({
+          key: z.string().optional(),
+          type: z.enum(['animal', 'familiar', 'eidolon']),
+          name: z.string().min(1).optional(),
+          source: z.string().min(1).optional()
+        })
+      )
+      .max(3)
   })
   .superRefine((values, ctx) => {
     const total = Object.values(values.abilities).reduce((acc, stat) => acc + stat, 0);

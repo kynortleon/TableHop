@@ -5,7 +5,7 @@
     "level": 1,
     "source": "Core Rulebook",
     "url": "https://2e.aonprd.com/Spells.aspx?ID=1",
-    "tags": ["Evocation", "Force"],
+    "tags": ["Evocation", "Force", "tradition:arcane"],
     "pfsLegal": true
   },
   {
@@ -14,7 +14,7 @@
     "level": 3,
     "source": "Core Rulebook",
     "url": "https://2e.aonprd.com/Spells.aspx?ID=2",
-    "tags": ["Evocation", "Fire"],
+    "tags": ["Evocation", "Fire", "tradition:arcane"],
     "pfsLegal": true
   },
   {

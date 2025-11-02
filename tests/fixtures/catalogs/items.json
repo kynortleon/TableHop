@@ -5,7 +5,7 @@
     "level": 1,
     "source": "Core Rulebook",
     "url": "https://2e.aonprd.com/Equipment.aspx?ID=1",
-    "tags": ["Consumable"],
+    "tags": ["Consumable", "price:4"],
     "pfsLegal": true
   },
   {
@@ -14,7 +14,7 @@
     "level": 5,
     "source": "Core Rulebook",
     "url": "https://2e.aonprd.com/Equipment.aspx?ID=2",
-    "tags": ["Wand"],
+    "tags": ["Wand", "price:200"],
     "pfsLegal": true
   }
 ]

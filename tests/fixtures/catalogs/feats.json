@@ -25,5 +25,14 @@
     "url": "https://2e.aonprd.com/Feats.aspx?ID=3",
     "tags": ["General"],
     "pfsLegal": true
+  },
+  {
+    "key": "feat-beastmaster-dedication",
+    "name": "Beastmaster Dedication",
+    "level": 2,
+    "source": "Advanced Player's Guide",
+    "url": "https://2e.aonprd.com/Feats.aspx?ID=2000",
+    "tags": ["Archetype", "Dedication", "grants:animal-companion"],
+    "pfsLegal": true
   }
 ]

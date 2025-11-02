@@ -1,12 +1,14 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import type { CharacterInput } from '@/lib/validators/character';
 import { characterSchema } from '@/lib/validators/character';
 import type { CatalogEntry } from '@/lib/aon/types';
+import type { ValidationIssue, ValidationSummary } from '@/types/pfs';
 import { useCatalog } from '@/hooks/useCatalog';
 import { Badge } from './ui/badge';
 
-type StepKey = 'identity' | 'abilities' | 'skills' | 'feats' | 'spells' | 'gear';
+type StepKey = 'identity' | 'abilities' | 'skills' | 'feats' | 'spells' | 'gear' | 'companions';
 
 const steps: Array<{ key: StepKey; label: string }> = [
   { key: 'identity', label: 'Identity' },
@@ -14,7 +16,8 @@ const steps: Array<{ key: StepKey; label: string }> = [
   { key: 'skills', label: 'Skills' },
   { key: 'feats', label: 'Feats' },
   { key: 'spells', label: 'Spells' },
-  { key: 'gear', label: 'Gear' }
+  { key: 'gear', label: 'Gear' },
+  { key: 'companions', label: 'Companions' }
 ];
 
 const baseAbilities = {
@@ -48,37 +51,85 @@ const skillList = [
 const maxSkillChoices = 8;
 const abilityBudget = 72;
 
+const fieldToStep: Partial<Record<string, StepKey>> = {
+  name: 'identity',
+  level: 'identity',
+  ancestry: 'identity',
+  heritage: 'identity',
+  background: 'identity',
+  clazz: 'identity',
+  keyAbility: 'abilities',
+  abilities: 'abilities',
+  skills: 'skills',
+  feats: 'feats',
+  spells: 'spells',
+  gear: 'gear',
+  companions: 'companions'
+};
+
+type CompanionType = 'animal' | 'familiar' | 'eidolon';
+
+const companionTypes: Array<{ type: CompanionType; label: string }> = [
+  { type: 'animal', label: 'Animal Companion' },
+  { type: 'familiar', label: 'Familiar' },
+  { type: 'eidolon', label: 'Eidolon' }
+];
+
 export function CharacterWizard() {
   const [currentStep, setCurrentStep] = useState<StepKey>('identity');
   const [isPending, startTransition] = useTransition();
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<CharacterInput>({
     name: '',
     level: 1,
     ancestry: '',
+    heritage: '',
     background: '',
     clazz: '',
     subclass: '',
     keyAbility: 'STR',
     abilities: { ...baseAbilities },
-    skills: [] as string[],
-    feats: [] as Array<{ key: string; level: number }>,
-    spells: [] as Array<{ key: string; level: number }>,
-    gear: [] as Array<{ key: string; quantity: number; totalCost: number }>
+    skills: [],
+    feats: [],
+    spells: [],
+    gear: [],
+    companions: []
   });
-  const [legalityStatus, setLegalityStatus] = useState<'unknown' | 'checking' | 'legal' | 'invalid'>(
-    'unknown'
-  );
-  const [legalityReasons, setLegalityReasons] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [validation, setValidation] = useState<ValidationSummary | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
+  const lastValidationPayload = useRef<string>('');
+
   const ancestries = useCatalog('ancestries');
   const backgrounds = useCatalog('backgrounds');
   const classes = useCatalog('classes');
+  const heritages = useCatalog('heritages');
   const [featSearch, setFeatSearch] = useState('');
   const [spellSearch, setSpellSearch] = useState('');
   const [gearSearch, setGearSearch] = useState('');
   const feats = useCatalog('feats', { q: featSearch, level: form.level });
   const spells = useCatalog('spells', { q: spellSearch, level: form.level });
   const items = useCatalog('items', { q: gearSearch, level: form.level });
+
+  const heritageOptions = useMemo(() => {
+    const options = heritages.data ?? [];
+    if (!form.ancestry) {
+      return options;
+    }
+    const ancestryKey = form.ancestry.toLowerCase();
+    return options.filter((entry) =>
+      entry.tags.some((tag) => tag.toLowerCase() === `ancestry:${ancestryKey}`)
+    );
+  }, [form.ancestry, heritages.data]);
+
+  useEffect(() => {
+    if (!form.heritage) {
+      return;
+    }
+    if (!heritageOptions.some((entry) => entry.key === form.heritage)) {
+      setForm((prev) => ({ ...prev, heritage: '' }));
+    }
+  }, [form.heritage, heritageOptions]);
 
   const totalAbilityScore = useMemo(
     () => Object.values(form.abilities).reduce((acc, score) => acc + score, 0),
@@ -87,7 +138,78 @@ export function CharacterWizard() {
 
   const remainingAbilityPoints = abilityBudget - totalAbilityScore;
 
-  const updateField = (field: string, value: any) => {
+  const status: 'unknown' | 'checking' | 'legal' | 'invalid' = useMemo(() => {
+    if (isValidating) {
+      return 'checking';
+    }
+    if (!validation) {
+      return 'unknown';
+    }
+    return validation.valid ? 'legal' : 'invalid';
+  }, [isValidating, validation]);
+
+  const runValidation = useCallback(
+    async (data: CharacterInput, cacheKey?: string) => {
+      try {
+        setIsValidating(true);
+        setValidationError(null);
+        const payloadKey = cacheKey ?? JSON.stringify(data);
+        lastValidationPayload.current = payloadKey;
+        const res = await fetch('/api/characters/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const body = (await res.json()) as ValidationSummary & {
+          errors?: ValidationIssue[];
+          warnings?: ValidationIssue[];
+        };
+        const summary: ValidationSummary = {
+          valid: Boolean(body.valid),
+          errors: body.errors ?? [],
+          warnings: body.warnings ?? []
+        };
+        if (!res.ok) {
+          setValidation(summary);
+          setValidationError('Validation service returned an error.');
+          return summary;
+        }
+        setValidation(summary);
+        return summary;
+      } catch (err) {
+        setValidationError('Unable to validate character. Please check your connection.');
+        return null;
+      } finally {
+        setIsValidating(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const parsed = characterSchema.safeParse(form);
+      if (!parsed.success) {
+        const schemaIssues: ValidationIssue[] = parsed.error.issues.map((issue) => ({
+          field: String(issue.path[0] ?? 'form'),
+          code: 'SCHEMA',
+          message: issue.message
+        }));
+        setValidation({ valid: false, errors: schemaIssues, warnings: [] });
+        setValidationError(null);
+        lastValidationPayload.current = '';
+        return;
+      }
+      const payloadKey = JSON.stringify(parsed.data);
+      if (payloadKey === lastValidationPayload.current) {
+        return;
+      }
+      runValidation(parsed.data, payloadKey);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [form, currentStep, runValidation]);
+
+  const updateField = (field: keyof CharacterInput, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -96,15 +218,12 @@ export function CharacterWizard() {
       const nextAbilities = {
         ...prev.abilities,
         [ability]: value
-      };
+      } as CharacterInput['abilities'];
       const nextTotal = Object.values(nextAbilities).reduce((acc, score) => acc + score, 0);
       if (nextTotal > abilityBudget) {
         return prev;
       }
-      return {
-        ...prev,
-        abilities: nextAbilities
-      };
+      return { ...prev, abilities: nextAbilities };
     });
   };
 
@@ -163,54 +282,187 @@ export function CharacterWizard() {
     }));
   };
 
+  const addCompanion = (type: CompanionType) => {
+    setForm((prev) => ({
+      ...prev,
+      companions: [...prev.companions, { type, name: '', source: '' }]
+    }));
+  };
+
+  const updateCompanion = (index: number, field: 'name' | 'source', value: string) => {
+    setForm((prev) => {
+      const next = [...prev.companions];
+      next[index] = { ...next[index], [field]: value };
+      return { ...prev, companions: next };
+    });
+  };
+
+  const removeCompanion = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      companions: prev.companions.filter((_, idx) => idx !== index)
+    }));
+  };
+
+  const scrollToStep = (step: StepKey) => {
+    const el = document.querySelector<HTMLElement>(`[data-step="${step}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const goToStep = (index: number) => {
+    const clamped = Math.max(0, Math.min(steps.length - 1, index));
+    const step = steps[clamped].key;
+    setCurrentStep(step);
+    setTimeout(() => scrollToStep(step), 60);
+  };
+
+  const handleIssueNavigate = (issue: ValidationIssue) => {
+    const step = fieldToStep[issue.field] ?? 'identity';
+    const index = steps.findIndex((item) => item.key === step);
+    if (index >= 0) {
+      goToStep(index);
+    }
+  };
+
   const submit = async () => {
     setError(null);
-    setLegalityStatus('checking');
-    setLegalityReasons([]);
-
     const parsed = characterSchema.safeParse(form);
     if (!parsed.success) {
-      setLegalityStatus('invalid');
+      const schemaIssues: ValidationIssue[] = parsed.error.issues.map((issue) => ({
+        field: String(issue.path[0] ?? 'form'),
+        code: 'SCHEMA',
+        message: issue.message
+      }));
+      setValidation({ valid: false, errors: schemaIssues, warnings: [] });
       setError('Validation failed. Please check each step for missing information.');
+      if (schemaIssues.length > 0) {
+        handleIssueNavigate(schemaIssues[0]);
+      }
+      return;
+    }
+
+    const summary = await runValidation(parsed.data);
+    if (!summary || !summary.valid) {
+      setError('Resolve legality issues before saving.');
+      if (summary?.errors?.length) {
+        handleIssueNavigate(summary.errors[0]);
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
       return;
     }
 
     startTransition(async () => {
-      const res = await fetch('/api/characters', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parsed.data)
-      });
-
-      if (!res.ok) {
+      try {
+        const res = await fetch('/api/characters', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(parsed.data)
+        });
         const body = await res.json();
-        setLegalityStatus('invalid');
-        setError(body.error ? JSON.stringify(body.error) : 'Failed to save character.');
-        return;
-      }
-
-      const body = await res.json();
-      setLegalityStatus(body.legality.legal ? 'legal' : 'invalid');
-      setLegalityReasons(body.legality.reasons);
-      if (body.character?.id) {
-        window.location.href = `/characters/${body.character.id}`;
+        if (!res.ok) {
+          setError(body?.error ?? 'Failed to save character.');
+          if (body?.errors) {
+            setValidation({ valid: false, errors: body.errors, warnings: body.warnings ?? [] });
+          }
+          return;
+        }
+        if (body?.valid) {
+          setValidation({ valid: true, errors: [], warnings: body.warnings ?? [] });
+        }
+        if (body?.id) {
+          window.location.href = `/characters/${body.id}`;
+        }
+      } catch (err) {
+        setError('Unexpected error saving character.');
       }
     });
   };
 
-  const stepIndex = steps.findIndex((step) => step.key === currentStep);
-  const goToStep = (index: number) => {
-    setCurrentStep(steps[Math.max(0, Math.min(steps.length - 1, index))].key);
-  };
+  const errorCount = validation?.errors.length ?? 0;
+  const warningCount = validation?.warnings.length ?? 0;
 
   return (
     <div className="space-y-8">
-      <div className="grid gap-3 sm:grid-cols-6">
+      <aside className="sticky top-4 z-10 space-y-3 rounded border border-slate-800 bg-slate-950 p-4 shadow-lg">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {status === 'legal' && <Badge className="bg-emerald-600">PFS Legal</Badge>}
+          {status === 'invalid' && <Badge variant="outline" className="border-red-500 text-red-300">Invalid</Badge>}
+          {status === 'checking' && <Badge variant="outline">Validating…</Badge>}
+          {status === 'unknown' && <Badge variant="outline">Not evaluated</Badge>}
+          <div className="text-xs text-slate-400">
+            {isValidating ? 'Checking Pathfinder Society legality…' : `${errorCount} errors · ${warningCount} warnings`}
+          </div>
+        </div>
+        {validationError && <p className="text-xs text-red-300">{validationError}</p>}
+        {(errorCount > 0 || warningCount > 0) && (
+          <div className="space-y-3 text-xs">
+            {errorCount > 0 && (
+              <details open className="rounded border border-red-500/40 bg-red-950/40 p-3">
+                <summary className="cursor-pointer font-semibold text-red-200">
+                  {errorCount} legality issue{errorCount === 1 ? '' : 's'}
+                </summary>
+                <ul className="mt-2 space-y-2">
+                  {validation?.errors.map((issue) => (
+                    <li key={`${issue.code}-${issue.message}`} data-validation-field={issue.field} className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => handleIssueNavigate(issue)}
+                        className="text-left text-red-200 underline decoration-dotted hover:text-red-100"
+                      >
+                        {issue.message}
+                      </button>
+                      {issue.url && (
+                        <a
+                          href={issue.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block text-[0.65rem] text-red-300 underline"
+                        >
+                          View on AoN ↗
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+            {warningCount > 0 && (
+              <details className="rounded border border-yellow-400/40 bg-yellow-900/20 p-3">
+                <summary className="cursor-pointer font-semibold text-yellow-100">
+                  {warningCount} warning{warningCount === 1 ? '' : 's'}
+                </summary>
+                <ul className="mt-2 space-y-2 text-yellow-100">
+                  {validation?.warnings.map((issue) => (
+                    <li key={`${issue.code}-${issue.message}`} className="space-y-1">
+                      <span>{issue.message}</span>
+                      {issue.url && (
+                        <a
+                          href={issue.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block text-[0.65rem] text-yellow-200 underline"
+                        >
+                          Learn more ↗
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
+      </aside>
+
+      <div className="grid gap-3 sm:grid-cols-7">
         {steps.map((step, index) => (
           <button
             key={step.key}
             type="button"
-            onClick={() => setCurrentStep(step.key)}
+            onClick={() => goToStep(index)}
             className={`rounded border px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide transition ${
               step.key === currentStep
                 ? 'border-primary bg-primary/20 text-primary'
@@ -222,10 +474,10 @@ export function CharacterWizard() {
         ))}
       </div>
 
-      <div className="rounded border border-slate-800 bg-slate-950 p-6">
+      <div className="rounded border border-slate-800 bg-slate-950 p-6" data-step={currentStep}>
         {currentStep === 'identity' && (
           <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-3">
+            <div className="space-y-3" data-validation-field="name">
               <label className="block text-xs font-semibold uppercase text-slate-400">Name</label>
               <input
                 value={form.name}
@@ -233,7 +485,7 @@ export function CharacterWizard() {
                 className="w-full rounded border border-slate-800 bg-slate-900 px-3 py-2 text-sm focus:border-primary focus:outline-none"
               />
             </div>
-            <div className="space-y-3">
+            <div className="space-y-3" data-validation-field="level">
               <label className="block text-xs font-semibold uppercase text-slate-400">Level</label>
               <input
                 type="number"
@@ -246,6 +498,7 @@ export function CharacterWizard() {
             </div>
             <SelectField
               label="Ancestry"
+              field="ancestry"
               value={form.ancestry}
               options={ancestries.data ?? []}
               loading={ancestries.loading}
@@ -253,7 +506,19 @@ export function CharacterWizard() {
               onChange={(value) => updateField('ancestry', value)}
             />
             <SelectField
+              label="Heritage"
+              field="heritage"
+              value={form.heritage ?? ''}
+              options={heritageOptions}
+              loading={heritages.loading}
+              error={heritages.error?.message}
+              onChange={(value) => updateField('heritage', value)}
+              placeholder={form.ancestry ? 'Select Heritage' : 'Choose an ancestry first'}
+              disabled={!form.ancestry}
+            />
+            <SelectField
               label="Background"
+              field="background"
               value={form.background}
               options={backgrounds.data ?? []}
               loading={backgrounds.loading}
@@ -262,13 +527,14 @@ export function CharacterWizard() {
             />
             <SelectField
               label="Class"
+              field="clazz"
               value={form.clazz}
               options={classes.data ?? []}
               loading={classes.loading}
               error={classes.error?.message}
               onChange={(value) => updateField('clazz', value)}
             />
-            <div className="space-y-3">
+            <div className="space-y-3" data-validation-field="keyAbility">
               <label className="block text-xs font-semibold uppercase text-slate-400">Key Ability</label>
               <select
                 value={form.keyAbility}
@@ -286,7 +552,7 @@ export function CharacterWizard() {
         )}
 
         {currentStep === 'abilities' && (
-          <div className="space-y-4">
+          <div className="space-y-4" data-validation-field="abilities">
             <p className="text-sm text-slate-300">Remaining points: {remainingAbilityPoints}</p>
             <div className="grid gap-4 sm:grid-cols-3">
               {Object.entries(form.abilities).map(([ability, score]) => (
@@ -300,7 +566,9 @@ export function CharacterWizard() {
                     min={8}
                     max={18}
                     value={score}
-                    onChange={(event) => updateAbility(ability as keyof typeof baseAbilities, Number(event.target.value))}
+                    onChange={(event) =>
+                      updateAbility(ability as keyof typeof baseAbilities, Number(event.target.value))
+                    }
                     className="w-full"
                   />
                 </div>
@@ -310,7 +578,7 @@ export function CharacterWizard() {
         )}
 
         {currentStep === 'skills' && (
-          <div className="space-y-4">
+          <div className="space-y-4" data-validation-field="skills">
             <p className="text-sm text-slate-300">
               Choose up to {maxSkillChoices} trained skills. ({form.skills.length}/{maxSkillChoices})
             </p>
@@ -337,72 +605,139 @@ export function CharacterWizard() {
         )}
 
         {currentStep === 'feats' && (
-          <CatalogPicker
-            title="Feats"
-            catalog={feats.data ?? []}
-            loading={feats.loading}
-            error={feats.error?.message}
-            searchValue={featSearch}
-            onSearchChange={setFeatSearch}
-            selections={form.feats.map((feat) => feat.key)}
-            onAdd={addFeat}
-            onRemove={removeFeat}
-            renderSelected={(key) => feats.data?.find((feat) => feat.key === key)?.name ?? key}
-          />
+          <div data-validation-field="feats">
+            <CatalogPicker
+              title="Feats"
+              catalog={feats.data ?? []}
+              loading={feats.loading}
+              error={feats.error?.message}
+              searchValue={featSearch}
+              onSearchChange={setFeatSearch}
+              selections={form.feats.map((feat) => feat.key)}
+              onAdd={addFeat}
+              onRemove={removeFeat}
+              renderSelected={(key) => feats.data?.find((feat) => feat.key === key)?.name ?? key}
+            />
+          </div>
         )}
 
         {currentStep === 'spells' && (
-          <CatalogPicker
-            title="Spells"
-            catalog={spells.data ?? []}
-            loading={spells.loading}
-            error={spells.error?.message}
-            searchValue={spellSearch}
-            onSearchChange={setSpellSearch}
-            selections={form.spells.map((spell) => spell.key)}
-            onAdd={addSpell}
-            onRemove={removeSpell}
-            renderSelected={(key) => spells.data?.find((spell) => spell.key === key)?.name ?? key}
-          />
+          <div data-validation-field="spells">
+            <CatalogPicker
+              title="Spells"
+              catalog={spells.data ?? []}
+              loading={spells.loading}
+              error={spells.error?.message}
+              searchValue={spellSearch}
+              onSearchChange={setSpellSearch}
+              selections={form.spells.map((spell) => spell.key)}
+              onAdd={addSpell}
+              onRemove={removeSpell}
+              renderSelected={(key) => spells.data?.find((spell) => spell.key === key)?.name ?? key}
+            />
+          </div>
         )}
 
         {currentStep === 'gear' && (
-          <CatalogPicker
-            title="Gear"
-            catalog={items.data ?? []}
-            loading={items.loading}
-            error={items.error?.message}
-            searchValue={gearSearch}
-            onSearchChange={setGearSearch}
-            selections={form.gear.map((item) => item.key)}
-            onAdd={addItem}
-            onRemove={removeItem}
-            renderSelected={(key) => items.data?.find((item) => item.key === key)?.name ?? key}
-          />
+          <div data-validation-field="gear">
+            <CatalogPicker
+              title="Gear"
+              catalog={items.data ?? []}
+              loading={items.loading}
+              error={items.error?.message}
+              searchValue={gearSearch}
+              onSearchChange={setGearSearch}
+              selections={form.gear.map((item) => item.key)}
+              onAdd={addItem}
+              onRemove={removeItem}
+              renderSelected={(key) => items.data?.find((item) => item.key === key)?.name ?? key}
+            />
+          </div>
+        )}
+
+        {currentStep === 'companions' && (
+          <div className="space-y-4" data-validation-field="companions">
+            <div className="flex flex-wrap gap-2">
+              {companionTypes.map((option) => (
+                <button
+                  key={option.type}
+                  type="button"
+                  onClick={() => addCompanion(option.type)}
+                  disabled={form.companions.length >= 3}
+                  className="rounded border border-slate-800 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200 hover:border-primary disabled:opacity-40"
+                >
+                  Add {option.label}
+                </button>
+              ))}
+            </div>
+            {form.companions.length === 0 ? (
+              <p className="text-sm text-slate-400">No companions selected.</p>
+            ) : (
+              <div className="space-y-3">
+                {form.companions.map((companion, index) => (
+                  <div
+                    key={`${companion.type}-${index}`}
+                    className="space-y-2 rounded border border-slate-800 bg-slate-900 p-4"
+                  >
+                    <div className="flex items-center justify-between text-sm font-semibold text-slate-100">
+                      <span className="capitalize">{companion.type}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeCompanion(index)}
+                        className="text-xs text-red-300 hover:text-red-200"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="space-y-1 text-xs text-slate-400">
+                        Companion Name
+                        <input
+                          value={companion.name ?? ''}
+                          onChange={(event) => updateCompanion(index, 'name', event.target.value)}
+                          placeholder="Optional nickname"
+                          className="w-full rounded border border-slate-800 bg-slate-950 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                        />
+                      </label>
+                      <label className="space-y-1 text-xs text-slate-400">
+                        Source
+                        <input
+                          value={companion.source ?? ''}
+                          onChange={(event) => updateCompanion(index, 'source', event.target.value)}
+                          placeholder="Feat or class feature"
+                          className="w-full rounded border border-slate-800 bg-slate-950 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-xs text-slate-400">
           <span>Status:</span>
-          {legalityStatus === 'legal' && <Badge>PFS Legal</Badge>}
-          {legalityStatus === 'invalid' && <Badge variant="outline">Invalid</Badge>}
-          {legalityStatus === 'checking' && <Badge variant="outline">Checking…</Badge>}
-          {legalityStatus === 'unknown' && <Badge variant="outline">Not evaluated</Badge>}
+          {status === 'legal' && <Badge className="bg-emerald-600">PFS Legal</Badge>}
+          {status === 'invalid' && <Badge variant="outline">Invalid</Badge>}
+          {status === 'checking' && <Badge variant="outline">Checking…</Badge>}
+          {status === 'unknown' && <Badge variant="outline">Not evaluated</Badge>}
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            disabled={stepIndex === 0}
-            onClick={() => goToStep(stepIndex - 1)}
+            disabled={steps.findIndex((step) => step.key === currentStep) === 0}
+            onClick={() => goToStep(steps.findIndex((step) => step.key === currentStep) - 1)}
             className="rounded border border-slate-800 px-4 py-2 text-sm text-slate-200 disabled:opacity-40"
           >
             Previous
           </button>
-          {stepIndex < steps.length - 1 ? (
+          {steps.findIndex((step) => step.key === currentStep) < steps.length - 1 ? (
             <button
               type="button"
-              onClick={() => goToStep(stepIndex + 1)}
+              onClick={() => goToStep(steps.findIndex((step) => step.key === currentStep) + 1)}
               className="rounded bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/80"
             >
               Next
@@ -421,16 +756,6 @@ export function CharacterWizard() {
       </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
-      {legalityReasons.length > 0 && (
-        <div className="space-y-2 text-xs text-red-300">
-          <p>Legality issues detected:</p>
-          <ul className="list-inside list-disc space-y-1">
-            {legalityReasons.map((reason) => (
-              <li key={reason}>{reason}</li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }
@@ -441,7 +766,10 @@ function SelectField({
   options,
   loading,
   error,
-  onChange
+  onChange,
+  field,
+  placeholder,
+  disabled
 }: {
   label: string;
   value: string;
@@ -449,17 +777,21 @@ function SelectField({
   loading: boolean;
   error?: string;
   onChange: (value: string) => void;
+  field?: string;
+  placeholder?: string;
+  disabled?: boolean;
 }) {
+  const resolvedPlaceholder = placeholder ?? (loading ? `Loading ${label}…` : `Select ${label}`);
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-validation-field={field}>
       <label className="block text-xs font-semibold uppercase text-slate-400">{label}</label>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="w-full rounded border border-slate-800 bg-slate-900 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-        disabled={loading}
+        disabled={loading || disabled}
       >
-        <option value="">{loading ? `Loading ${label}…` : `Select ${label}`}</option>
+        <option value="">{resolvedPlaceholder}</option>
         {options.map((option) => (
           <option
             key={option.key}
@@ -538,7 +870,9 @@ function CatalogPicker({
           )}
           {!loading && !error &&
             remaining.map((entry) => {
-              const tooltip = `Source: ${entry.source}\nLevel: ${entry.level}\nTags: ${entry.tags.join(', ') || '—'}`;
+              const tooltip = `Source: ${entry.source}
+Level: ${entry.level}
+Tags: ${entry.tags.join(', ') || '—'}`;
               return (
                 <div
                   key={entry.key}
@@ -584,7 +918,9 @@ function CatalogPicker({
           {selections.map((key) => {
             const entry = catalog.find((item) => item.key === key);
             const tooltip = entry
-              ? `Source: ${entry.source}\nLevel: ${entry.level}\nTags: ${entry.tags.join(', ') || '—'}`
+              ? `Source: ${entry.source}
+Level: ${entry.level}
+Tags: ${entry.tags.join(', ') || '—'}`
               : undefined;
             return (
               <div
