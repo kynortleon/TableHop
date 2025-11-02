@@ -10,12 +10,13 @@
     "sync:aon": "tsx scripts/updateCatalogs.ts",
     "test": "vitest run",
     "prisma:migrate": "prisma migrate deploy",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "queue:worker": "tsx scripts/queueWorker.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.1.3",
     "@heroicons/react": "^2.1.4",
-    "@prisma/client": "^5.10.2",
+    "@prisma/client": "^6.18.0",
     "axios": "^1.6.7",
     "cheerio": "^1.0.0-rc.12",
     "clsx": "^2.1.0",
@@ -25,6 +26,8 @@
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "sharp": "^0.33.2",
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.7.5",
     "superjson": "^2.2.1",
     "swr": "^2.2.4",
     "tailwind-merge": "^2.1.0",

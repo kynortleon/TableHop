@@ -38,7 +38,17 @@ TableHop is a Pathfinder 2e “drop-in” platform focused on building Pathfinde
    npx prisma migrate deploy
    ```
 
-5. **Sync Archives of Nethys catalogs**
+5. **Start the realtime queue worker**
+
+   The matchmaking service runs alongside the Next.js app. Start it in a separate terminal before joining the queue.
+
+   ```bash
+   npm run queue:worker
+   ```
+
+   The worker hosts the Socket.IO server (`QUEUE_SOCKET_PORT`, defaults to `4010`) and processes matches every three seconds.
+
+6. **Sync Archives of Nethys catalogs**
 
    ```bash
    npm run sync:aon
@@ -46,7 +56,7 @@ TableHop is a Pathfinder 2e “drop-in” platform focused on building Pathfinde
 
    This script populates the JSON catalogs in `data/catalogs/*.json` with PFS-legal options.
 
-6. **Run the development server**
+7. **Run the development server**
 
    ```bash
    npm run dev
@@ -69,6 +79,7 @@ The project reads PFS-legal options from the JSON catalogs stored in `data/catal
 - `npm run sync:aon` – refresh Archives of Nethys data and regenerate catalogs
 - `npm run prisma:migrate` – apply database migrations
 - `npm run prisma:generate` – regenerate the Prisma client
+- `npm run queue:worker` – launch the realtime queue + Socket.IO matchmaker
 
 ## Testing
 
