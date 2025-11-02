@@ -1,0 +1,11 @@
+[
+  {
+    "key": "class-fighter",
+    "name": "Fighter",
+    "level": 1,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Classes.aspx?ID=1",
+    "tags": ["Martial"],
+    "pfsLegal": true
+  }
+]

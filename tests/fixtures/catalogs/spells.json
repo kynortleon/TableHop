@@ -1,0 +1,29 @@
+[
+  {
+    "key": "spell-magic-missile",
+    "name": "Magic Missile",
+    "level": 1,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Spells.aspx?ID=1",
+    "tags": ["Evocation", "Force"],
+    "pfsLegal": true
+  },
+  {
+    "key": "spell-fireball",
+    "name": "Fireball",
+    "level": 3,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Spells.aspx?ID=2",
+    "tags": ["Evocation", "Fire"],
+    "pfsLegal": true
+  },
+  {
+    "key": "spell-nightmare",
+    "name": "Nightmare",
+    "level": 5,
+    "source": "Bestiary",
+    "url": "https://2e.aonprd.com/Spells.aspx?ID=3",
+    "tags": ["Illusion"],
+    "pfsLegal": false
+  }
+]

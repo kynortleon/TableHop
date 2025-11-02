@@ -1,0 +1,29 @@
+[
+  {
+    "key": "feat-battle-medicine",
+    "name": "Battle Medicine",
+    "level": 1,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Feats.aspx?ID=1",
+    "tags": ["General", "Skill"],
+    "pfsLegal": true
+  },
+  {
+    "key": "feat-risky-surgery",
+    "name": "Risky Surgery",
+    "level": 3,
+    "source": "Advanced Player's Guide",
+    "url": "https://2e.aonprd.com/Feats.aspx?ID=2",
+    "tags": ["Skill"],
+    "pfsLegal": false
+  },
+  {
+    "key": "feat-trick-magic",
+    "name": "Trick Magic Item",
+    "level": 2,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Feats.aspx?ID=3",
+    "tags": ["General"],
+    "pfsLegal": true
+  }
+]

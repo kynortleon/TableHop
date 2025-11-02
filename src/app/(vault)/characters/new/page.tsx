@@ -1,26 +1,6 @@
-import { getCatalog } from '@/lib/aon/catalog';
-import type { CatalogEntry } from '@/lib/aon/types';
 import { CharacterWizard } from '@/components/character-wizard';
 
-export default async function NewCharacterPage() {
-  const [classes, ancestries, backgrounds, feats, spells, items] = await Promise.all([
-    getCatalog('classes', true),
-    getCatalog('ancestries', true),
-    getCatalog('backgrounds', true),
-    getCatalog('feats', true),
-    getCatalog('spells', true),
-    getCatalog('items', true)
-  ]);
-
-  const catalogs: Record<string, CatalogEntry[]> = {
-    classes,
-    ancestries,
-    backgrounds,
-    feats,
-    spells,
-    items
-  };
-
+export default function NewCharacterPage() {
   return (
     <section className="space-y-8">
       <header className="space-y-2">
@@ -29,7 +9,7 @@ export default async function NewCharacterPage() {
           Build a Pathfinder Society legal character with content sourced from the Archives of Nethys.
         </p>
       </header>
-      <CharacterWizard catalogs={catalogs} />
+      <CharacterWizard />
     </section>
   );
 }
