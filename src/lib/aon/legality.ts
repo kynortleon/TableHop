@@ -6,7 +6,15 @@ interface LegalityResult {
   reasons: string[];
 }
 
-const REQUIRED_TYPES: CatalogType[] = ['classes', 'ancestries', 'backgrounds', 'feats', 'spells', 'items'];
+const REQUIRED_TYPES: CatalogType[] = [
+  'classes',
+  'ancestries',
+  'backgrounds',
+  'heritages',
+  'feats',
+  'spells',
+  'items'
+];
 
 const isEntryLegal = (entry: CatalogEntry | undefined) => !!entry?.pfsLegal;
 

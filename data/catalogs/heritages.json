@@ -1,0 +1,20 @@
+[
+  {
+    "key": "heritage-human-skilled",
+    "name": "Skilled Heritage",
+    "level": 1,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Heritages.aspx?ID=1",
+    "tags": ["ancestry:ancestry-human"],
+    "pfsLegal": true
+  },
+  {
+    "key": "heritage-elf-woodland",
+    "name": "Woodland Elf",
+    "level": 1,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Heritages.aspx?ID=2",
+    "tags": ["ancestry:ancestry-elf"],
+    "pfsLegal": true
+  }
+]

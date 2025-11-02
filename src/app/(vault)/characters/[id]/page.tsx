@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '@/lib/db/client';
 import { Badge } from '@/components/ui/badge';
+import { computeDerivedStats } from '@/server/validate/pfs';
+import type { CharacterInput } from '@/lib/validators/character';
 
 interface Props {
   params: { id: string };
@@ -17,11 +19,30 @@ export default async function CharacterDetailPage({ params }: Props) {
     notFound();
   }
 
+  const characterInput: CharacterInput = {
+    name: character.name,
+    level: character.level,
+    ancestry: character.ancestry,
+    heritage: (character as any).heritage ?? '',
+    background: character.background,
+    clazz: character.clazz,
+    subclass: character.subclass ?? undefined,
+    keyAbility: character.keyAbility as CharacterInput['keyAbility'],
+    abilities: character.abilities as CharacterInput['abilities'],
+    skills: (character.skills as string[]) ?? [],
+    feats: (character.feats as CharacterInput['feats']) ?? [],
+    spells: (character.spells as CharacterInput['spells']) ?? [],
+    gear: (character.gear as CharacterInput['gear']) ?? [],
+    companions: ((character as any).companions ?? []) as CharacterInput['companions']
+  };
+
+  const derived = computeDerivedStats(characterInput);
+
   const tabs = [
-    { key: 'feats', label: 'Feats', data: character.feats },
-    { key: 'spells', label: 'Spells', data: character.spells },
-    { key: 'gear', label: 'Gear', data: character.gear },
-    { key: 'companions', label: 'Companions', data: [] },
+    { key: 'feats', label: 'Feats', data: characterInput.feats },
+    { key: 'spells', label: 'Spells', data: characterInput.spells },
+    { key: 'gear', label: 'Gear', data: characterInput.gear },
+    { key: 'companions', label: 'Companions', data: characterInput.companions },
     { key: 'log', label: 'PFS Log', data: character.logEntries }
   ];
 
@@ -35,7 +56,8 @@ export default async function CharacterDetailPage({ params }: Props) {
           </Badge>
         </div>
         <div className="text-sm text-slate-300">
-          Level {character.level} {character.ancestry} {character.clazz}
+          Level {character.level} {character.ancestry}
+          {characterInput.heritage ? ` (${characterInput.heritage})` : ''} {character.clazz}
         </div>
         {character.legalityLog && (
           <div className="rounded border border-slate-800 bg-slate-900 p-4 text-sm text-slate-300">
@@ -48,6 +70,20 @@ export default async function CharacterDetailPage({ params }: Props) {
         </Link>
       </header>
 
+      <section className="rounded border border-slate-800 bg-slate-950">
+        <header className="border-b border-slate-800 bg-slate-900 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-slate-300">
+          Derived Stats
+        </header>
+        <dl className="grid gap-4 p-4 text-sm text-slate-100 sm:grid-cols-3">
+          <Stat label="Armor Class" value={derived.armorClass} />
+          <Stat label="Hit Points" value={derived.hitPoints} />
+          <Stat label="Perception" value={derived.perception} />
+          <Stat label="Fortitude" value={derived.fortitude} />
+          <Stat label="Reflex" value={derived.reflex} />
+          <Stat label="Will" value={derived.will} />
+        </dl>
+      </section>
+
       <div className="space-y-6">
         {tabs.map((tab) => (
           <section key={tab.key} className="rounded border border-slate-800 bg-slate-950">
@@ -58,19 +94,24 @@ export default async function CharacterDetailPage({ params }: Props) {
               {Array.isArray(tab.data) && tab.data.length > 0 ? (
                 <ul className="space-y-2">
                   {tab.data.map((entry: any, idx: number) => (
-                    <li key={idx} className="flex items-center justify-between gap-4">
-                      <span>{entry.key ?? entry.scenario ?? 'Entry'}</span>
-                      {'level' in entry && entry.level !== undefined && (
-                        <span className="text-xs text-slate-400">Level {entry.level}</span>
-                      )}
-                      {'totalCost' in entry && entry.totalCost !== undefined && (
-                        <span className="text-xs text-slate-400">{entry.totalCost} gp</span>
-                      )}
-                      {'date' in entry && (
-                        <span className="text-xs text-slate-400">
-                          {new Date(entry.date).toLocaleDateString()}
-                        </span>
-                      )}
+                    <li key={idx} className="flex flex-col gap-1 rounded border border-slate-800 bg-slate-900 p-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex-1 text-sm font-semibold text-slate-100">
+                        {entry.key ?? entry.name ?? entry.scenario ?? entry.type ?? 'Entry'}
+                        {'name' in entry && entry.name && entry.key !== entry.name && (
+                          <span className="ml-2 text-xs font-normal text-slate-300">{entry.name}</span>
+                        )}
+                        {'type' in entry && entry.type && !entry.key && (
+                          <span className="ml-2 text-xs font-normal text-slate-300 capitalize">{entry.type}</span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                        {'level' in entry && entry.level !== undefined && <span>Level {entry.level}</span>}
+                        {'totalCost' in entry && entry.totalCost !== undefined && <span>{entry.totalCost} gp</span>}
+                        {'source' in entry && entry.source && <span>{entry.source}</span>}
+                        {'date' in entry && (
+                          <span>{new Date(entry.date).toLocaleDateString()}</span>
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -82,5 +123,14 @@ export default async function CharacterDetailPage({ params }: Props) {
         ))}
       </div>
     </section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="space-y-1">
+      <dt className="text-xs uppercase tracking-wide text-slate-400">{label}</dt>
+      <dd className="text-lg font-semibold text-slate-100">{value}</dd>
+    </div>
   );
 }

@@ -4,6 +4,7 @@ export const CatalogTypeSchema = z.enum([
   'classes',
   'ancestries',
   'backgrounds',
+  'heritages',
   'feats',
   'spells',
   'items'

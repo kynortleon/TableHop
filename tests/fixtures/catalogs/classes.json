@@ -7,5 +7,23 @@
     "url": "https://2e.aonprd.com/Classes.aspx?ID=1",
     "tags": ["Martial"],
     "pfsLegal": true
+  },
+  {
+    "key": "class-wizard",
+    "name": "Wizard",
+    "level": 1,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Classes.aspx?ID=11",
+    "tags": ["Caster", "tradition:arcane"],
+    "pfsLegal": true
+  },
+  {
+    "key": "class-ranger",
+    "name": "Ranger",
+    "level": 1,
+    "source": "Core Rulebook",
+    "url": "https://2e.aonprd.com/Classes.aspx?ID=7",
+    "tags": ["Martial", "grants:animal-companion"],
+    "pfsLegal": true
   }
 ]

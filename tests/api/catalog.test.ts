@@ -8,7 +8,7 @@ describe('GET /api/catalog/[type]', () => {
     const response = await GET(createRequest('/api/catalog/feats'), { params: { type: 'feats' } });
     expect(response.status).toBe(200);
     const data = (await response.json()) as Array<{ key: string; pfsLegal: boolean }>;
-    expect(data).toHaveLength(2);
+    expect(data).toHaveLength(3);
     expect(data.every((entry) => entry.pfsLegal)).toBe(true);
   });
 
@@ -31,7 +31,10 @@ describe('GET /api/catalog/[type]', () => {
     const response = await GET(createRequest('/api/catalog/feats?level=2'), { params: { type: 'feats' } });
     expect(response.status).toBe(200);
     const data = (await response.json()) as Array<{ key: string }>;
-    expect(data.map((entry) => entry.key)).toEqual(['feat-trick-magic']);
+    expect(data.map((entry) => entry.key).sort()).toEqual([
+      'feat-beastmaster-dedication',
+      'feat-trick-magic'
+    ]);
   });
 
   it('rejects invalid catalog type', async () => {

@@ -1,20 +1,11 @@
 [
   {
-    "key": "scholar",
-    "name": "Scholar",
-    "level": 0,
+    "key": "background-acolyte",
+    "name": "Acolyte",
+    "level": 1,
     "source": "Core Rulebook",
-    "url": "https://2e.aonprd.com/Backgrounds.aspx?ID=9",
-    "tags": ["knowledge"],
-    "pfsLegal": true
-  },
-  {
-    "key": "warrior",
-    "name": "Warrior",
-    "level": 0,
-    "source": "Core Rulebook",
-    "url": "https://2e.aonprd.com/Backgrounds.aspx?ID=12",
-    "tags": ["martial"],
+    "url": "https://2e.aonprd.com/Backgrounds.aspx?ID=1",
+    "tags": ["Religion"],
     "pfsLegal": true
   }
 ]

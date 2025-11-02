@@ -70,6 +70,11 @@ The project reads PFS-legal options from the JSON catalogs stored in `data/catal
 - `npm run prisma:migrate` – apply database migrations
 - `npm run prisma:generate` – regenerate the Prisma client
 
+## Testing
+
+- `npm test` – run the entire Vitest suite
+- `npm test -- src/tests/validator` – run only the Pathfinder Society validator tests
+
 ## Project Structure
 
 ```
